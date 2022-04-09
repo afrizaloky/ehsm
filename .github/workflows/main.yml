@@ -1,0 +1,23 @@
+# This is a basic workflow to help you get started with Actions
+- name: Sync and merge upstream repository with your current repository
+# Controls when the workflow will run
+on:
+  workflow_dispatch:
+  schedule: [{ cron: "0 0 * * *" }]
+  
+
+jobs:
+  github-metrics:
+    runs-on: ubuntu-latest
+    steps:
+      # See action.yml for all options
+      - uses: dabreadman/sync-upstream-repo@v1.0.0.b
+        with:
+          # URL of gitHub public upstream repo
+          upstream_repo: "https://github.com/intel/ehsm.git"
+          # Branch to merge from upstream (defaults to downstream branch)
+          upstream_branch: main
+          # Branch to merge into downstream
+          downstream_branch: main
+          # GitHub Bot token
+          token: ${{ secrets.GITHUB_TOKEN }}
