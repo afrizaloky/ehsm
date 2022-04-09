@@ -5,7 +5,7 @@ on:
   schedule: [{ cron: "0 0 * * *" }]
   
 jobs:
-  github-metrics:
+  Sync:
     runs-on: ubuntu-latest
     steps:
       # See action.yml for all options
