@@ -15,10 +15,10 @@ Welcome to see the build instructions for the ehsm-kms project.
 
 * Install SGX SDK
     ```shell
-    wget https://download.01.org/intel-sgx/sgx-dcap/1.12.1/linux/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.15.101.1.bin
+    wget https://download.01.org/intel-sgx/sgx-dcap/1.13/linux/distro/ubuntu20.04-server/sgx_linux_x64_sdk_2.16.100.4.bin
 
     #choose to install the sdk into the /opt/intel
-    chmod a+x ./sgx_linux_x64_sdk_2.15.101.1.bin && sudo ./sgx_linux_x64_sdk_2.15.101.1.bin
+    chmod a+x ./sgx_linux_x64_sdk_2.16.100.4.bin && sudo ./sgx_linux_x64_sdk_2.16.100.4.bin
 
     source /opt/intel/sgxsdk/environment
     ```
@@ -27,7 +27,7 @@ Welcome to see the build instructions for the ehsm-kms project.
     ```shell
     cd /opt/intel
 
-    wget https://download.01.org/intel-sgx/sgx-dcap/1.12.1/linux/distro/ubuntu20.04-server/sgx_debian_local_repo.tgz
+    wget https://download.01.org/intel-sgx/sgx-dcap/1.13/linux/distro/ubuntu20.04-server/sgx_debian_local_repo.tgz
 
     tar xzf sgx_debian_local_repo.tgz
 
@@ -90,7 +90,7 @@ Welcome to see the build instructions for the ehsm-kms project.
 * Enrollment of the APPID and APIKey
     * Option-1: use the RESTFUL GET command of Enroll
     ``` shell
-    curl http://10.112.240.169:9000/ehsm?Action=Enroll
+    curl [--insecure] https://1.2.3.4:9000/ehsm?Action=Enroll
     ```
     ![image](diagrams/enroll.PNG)
 
@@ -102,7 +102,7 @@ Welcome to see the build instructions for the ehsm-kms project.
 
     # use the enroll app to retrieve the valide appid and apikey from ehsm-kms
     cd ../out/ehsm-kms_enroll_app
-    ./ehsm-kms_enroll_app http://1.2.3.4:9000/ehsm/ (change to your ip and port)
+    ./ehsm-kms_enroll_app -a https://1.2.3.4:9000/ehsm/ [-n] (change to your ip and port, optional -n used for tested web certificate)
     ```
     You will get below results:<br>
     ![image](diagrams/enroll_result.PNG)
@@ -112,7 +112,7 @@ Welcome to see the build instructions for the ehsm-kms project.
     ``` shell
     cd test
     # run the unit testcases
-    python3 test_kms_with_rest.py --url http://<ip_addr>:<port>
+    python3 test_kms_with_cli.py --url https://<ip_addr>:<port>
     ```
     Then, you will get the below test result:<br>
     ![unittest-result-with-rest.png](diagrams/unittest-result-with-rest.PNG)
