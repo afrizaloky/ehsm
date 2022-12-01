@@ -39,9 +39,7 @@
 #include "key_operation.h"
 #include "openssl_operation.h"
 
-#define DUMMY_SIZE 128
-
-sgx_aes_gcm_128bit_key_t g_domain_key = {0};
+sgx_aes_gcm_256bit_key_t g_domain_key = {0};
 
 using namespace std;
 
@@ -108,12 +106,12 @@ sgx_status_t ehsm_create_keyblob(uint8_t *plaintext,
     }
 
     ret = aes_gcm_encrypt((uint8_t *)g_domain_key,
-                          keyblob_data->payload, EVP_aes_128_gcm(),
+                          keyblob_data->payload, EVP_aes_256_gcm(),
                           plaintext, plaintext_size,
                           NULL, 0,
                           keyblob_data->iv, SGX_AESGCM_IV_SIZE,
                           keyblob_data->mac, SGX_AESGCM_MAC_SIZE);
-                          
+
     if (SGX_SUCCESS != ret)
         printf("gcm encrypting failed.\n");
     else
@@ -132,7 +130,7 @@ sgx_status_t ehsm_parse_keyblob(uint8_t *plaintext, sgx_aes_gcm_data_ex_t *keybl
         return SGX_ERROR_INVALID_PARAMETER;
 
     sgx_status_t ret = aes_gcm_decrypt((uint8_t *)g_domain_key,
-                                       plaintext, EVP_aes_128_gcm(),
+                                       plaintext, EVP_aes_256_gcm(),
                                        keyblob_data->payload,
                                        keyblob_data->ciphertext_size,
                                        NULL,
@@ -206,7 +204,7 @@ sgx_status_t ehsm_create_aes_key(ehsm_keyblob_t *cmk)
         free(key);
         return ret;
     }
-    
+
     ret = ehsm_create_keyblob(key,
                               keysize,
                               (sgx_aes_gcm_data_ex_t *)cmk->keyblob);
@@ -216,6 +214,36 @@ sgx_status_t ehsm_create_aes_key(ehsm_keyblob_t *cmk)
 
     return ret;
 }
+
+#ifdef ENABLE_PAIR_WISE_TEST
+static bool pair_wise_test_for_rsa(RSA *keypair)
+{
+    uint8_t data2sign[] = "pair_wise_test_for_rsa";
+    uint8_t signature[RSA_size(keypair)] = {0};
+    uint32_t data2sign_size = sizeof(data2sign) / sizeof(data2sign[0]);
+    bool result = false;
+    if (rsa_sign(keypair,
+                 EVP_sha256(),
+                 EH_PAD_RSA_PKCS1_PSS,
+                 data2sign,
+                 data2sign_size,
+                 signature,
+                 RSA_size(keypair)) != SGX_SUCCESS)
+        return false;
+
+    if (rsa_verify(keypair,
+                   EVP_sha256(),
+                   EH_PAD_RSA_PKCS1_PSS,
+                   data2sign,
+                   data2sign_size,
+                   signature,
+                   RSA_size(keypair),
+                   &result, -1) != SGX_SUCCESS)
+        return false;
+
+    return result;
+}
+#endif
 
 sgx_status_t ehsm_create_rsa_key(ehsm_keyblob_t *cmk)
 {
@@ -261,6 +289,14 @@ sgx_status_t ehsm_create_rsa_key(ehsm_keyblob_t *cmk)
     if (rsa_keypair == NULL)
         goto out;
 
+#ifdef ENABLE_PAIR_WISE_TEST
+    if (!pair_wise_test_for_rsa(rsa_keypair))
+    {
+        log_e("rsa keypair test failed, exit");
+        goto out;
+    }
+#endif
+
     bio = BIO_new(BIO_s_mem());
     if (bio == NULL)
         goto out;
@@ -297,6 +333,83 @@ out:
     SAFE_FREE(pem_keypair);
     return ret;
 }
+
+#ifdef ENABLE_PAIR_WISE_TEST
+static bool pair_wise_test_for_ecc(uint8_t *keypair)
+{
+    EC_KEY *pir_key = NULL;
+    EC_KEY *pub_key = NULL;
+    BIO *pri_bio = NULL;
+    BIO *pub_bio = NULL;
+    uint8_t data2sign[] = "test_ec_keypair";
+    uint32_t signature_size = 0;
+    uint8_t *signature = NULL;
+    uint32_t data2sign_size = sizeof(data2sign) / sizeof(data2sign[0]);
+    bool result = false;
+
+    pri_bio = BIO_new_mem_buf(keypair, -1); // use -1 to auto compute length
+    if (pri_bio == NULL)
+    {
+        log_d("failed to load ecc prikey pem\n");
+        goto out;
+    }
+
+    PEM_read_bio_ECPrivateKey(pri_bio, &pir_key, NULL, NULL);
+    if (pir_key == NULL)
+    {
+        log_d("failed to load ecc prikey\n");
+        goto out;
+    }
+    signature_size = ECDSA_size(pir_key);
+    signature = (uint8_t *)malloc(signature_size);
+    if (signature == NULL)
+    {
+        goto out;
+    }
+    if (ecc_sign(pir_key,
+                 EVP_sha256(),
+                 data2sign,
+                 data2sign_size,
+                 signature,
+                 &signature_size) != SGX_SUCCESS)
+    {
+        goto out;
+    }
+
+    pub_bio = BIO_new_mem_buf(keypair, -1); // use -1 to auto compute length
+    if (pub_bio == NULL)
+    {
+        log_d("failed to load ecc pubkey pem\n");
+        goto out;
+    }
+    PEM_read_bio_EC_PUBKEY(pub_bio, &pub_key, NULL, NULL);
+    if (pub_key == NULL)
+    {
+        log_d("failed to load ecc pubkey\n");
+        goto out;
+    }
+    ecc_verify(pub_key,
+               EVP_sha256(),
+               data2sign,
+               data2sign_size,
+               signature,
+               signature_size,
+               &result);
+out:
+    if (pir_key)
+        EC_KEY_free(pir_key);
+    if (pri_bio)
+        BIO_free(pri_bio);
+    if (pub_bio)
+        BIO_free(pub_bio);
+    if (pub_key)
+        EC_KEY_free(pub_key);
+
+    memset_s(signature, signature_size, 0, signature_size);
+    SAFE_FREE(signature);
+    return result;
+}
+#endif
 
 sgx_status_t ehsm_create_ecc_key(ehsm_keyblob_t *cmk) // https://github.com/intel/linux-sgx/blob/master/SampleCode/SampleAttestedTLS/common/utility.cpp
 {
@@ -367,6 +480,14 @@ sgx_status_t ehsm_create_ecc_key(ehsm_keyblob_t *cmk) // https://github.com/inte
     if (BIO_read(bio, pem_keypair, key_size) < 0)
         goto out;
 
+#ifdef ENABLE_PAIR_WISE_TEST
+    if (!pair_wise_test_for_ecc(pem_keypair))
+    {
+        log_e("ecc keypair test failed, exit");
+        goto out;
+    }
+#endif
+
     ret = ehsm_create_keyblob(pem_keypair, key_size, (sgx_aes_gcm_data_ex_t *)cmk->keyblob);
 
 out:
@@ -381,6 +502,39 @@ out:
     SAFE_FREE(pem_keypair);
     return ret;
 }
+
+#ifdef ENABLE_PAIR_WISE_TEST
+static bool pair_wise_test_for_sm2(EC_KEY *ec_key)
+{
+    uint8_t data2sign[] = "test_SM2_keypair";
+    uint32_t signature_size = ECDSA_size(ec_key);
+    uint8_t signature[signature_size] = {0};
+    uint32_t data2sign_size = sizeof(data2sign) / sizeof(data2sign[0]);
+    bool result = false;
+    if (sm2_sign(ec_key,
+                 EVP_sha256(),
+                 data2sign,
+                 data2sign_size,
+                 signature,
+                 &signature_size,
+                 (uint8_t *)SM2_DEFAULT_USERID,
+                 strlen(SM2_DEFAULT_USERID)) != SGX_SUCCESS)
+        return false;
+
+    if (sm2_verify(ec_key,
+                   EVP_sha256(),
+                   data2sign,
+                   data2sign_size,
+                   signature,
+                   signature_size,
+                   &result,
+                   (uint8_t *)SM2_DEFAULT_USERID,
+                   strlen(SM2_DEFAULT_USERID)) != SGX_SUCCESS)
+        return false;
+
+    return result;
+}
+#endif
 
 sgx_status_t ehsm_create_sm2_key(ehsm_keyblob_t *cmk)
 // https://github.com/intel/intel-sgx-ssl/blob/master/Linux/sgx/test_app/enclave/tests/evp_smx.c
@@ -424,6 +578,14 @@ sgx_status_t ehsm_create_sm2_key(ehsm_keyblob_t *cmk)
         printf("Error: fail to generate key pair based on the curve\n");
         goto out;
     }
+
+#ifdef ENABLE_PAIR_WISE_TEST
+    if (!pair_wise_test_for_sm2(ec_key))
+    {
+        log_e("sm2 keypair test failed, exit");
+        goto out;
+    }
+#endif
 
     bio = BIO_new(BIO_s_mem());
     if (bio == NULL)
