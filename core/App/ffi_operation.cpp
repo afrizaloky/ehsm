@@ -38,6 +38,7 @@
 #include "ffi_operation.h"
 #include "ehsm_marshal.h"
 #include "ehsm_provider.h"
+#include "ulog_utils.h"
 
 using namespace std;
 
@@ -161,10 +162,6 @@ extern "C"
     */
     uint32_t ffi_initialize(char *respJson)
     {
-        log_i("Service name:\t\teHSM-KMS service %s", EHSM_VERSION);
-        log_i("Service built:\t\t%s", EHSM_DATE);
-        log_i("Service git_sha:\t\t%s", EHSM_GIT_SHA);
-
         RetJsonObj retJsonObj;
         ehsm_status_t ret = EH_OK;
 

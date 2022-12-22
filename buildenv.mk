@@ -32,7 +32,7 @@
 ######## version ########
 vsn_major=0
 vsn_minor=3
-vsn_patch=1
+vsn_patch=2
 
 ######## auto_version Settings ########
 VERSION_STRING := $(vsn_major).$(vsn_minor).$(vsn_patch)
@@ -78,6 +78,7 @@ RM = rm -f
 OPENSSL_PATH := $(ROOT_DIR)/utils/sgxssl
 OPENSSL_LIBRARY_PATH := $(OPENSSL_PATH)/lib64
 SOCKET_DIR := $(ROOT_DIR)/utils/sgx_socket
+LOG_DIR := $(ROOT_DIR)/utils/log4cplus
 SGXSSL_Library_Name := sgx_tsgxssl
 OpenSSL_Crypto_Library_Name := sgx_tsgxssl_crypto
 SGXSSL_Untrusted_Library_Name := sgx_usgxssl
