@@ -65,7 +65,15 @@ def test_asymmetricKey_encrypt_decrypt(base_url, headers):
 def test_get_public_key(base_url, headers):
     print('====================test_get_public_key start===========================')
     key_SM2 = createkey.createkey(base_url, "EH_SM2", "EH_INTERNAL_KEY", None, None, None)
-    asymmetricKey = [key_SM2]
+    key_EC_224 = createkey.createkey(base_url, "EH_EC_224", "EH_INTERNAL_KEY", None, None, None)
+    key_EC_256 = createkey.createkey(base_url, "EH_EC_256", "EH_INTERNAL_KEY", None, None, None)
+    key_EC_256K = createkey.createkey(base_url, "EH_EC_256K", "EH_INTERNAL_KEY", None, None, None)
+    key_EC_384 = createkey.createkey(base_url, "EH_EC_384", "EH_INTERNAL_KEY", None, None, None)
+    key_EC_521 = createkey.createkey(base_url, "EH_EC_521", "EH_INTERNAL_KEY", None, None, None)
+    key_RSA_2048 = createkey.createkey(base_url, "EH_RSA_2048", "EH_INTERNAL_KEY", None, None, None)
+    key_RSA_3072 = createkey.createkey(base_url, "EH_RSA_3072", "EH_INTERNAL_KEY", None, None, None)
+    key_RSA_4096 = createkey.createkey(base_url, "EH_RSA_4096", "EH_INTERNAL_KEY", None, None, None)
+    asymmetricKey = [key_SM2, key_EC_224, key_EC_256, key_EC_256K, key_EC_384, key_EC_521, key_RSA_2048, key_RSA_3072, key_RSA_4096]
 
     for i in asymmetricKey:
         pubkey = getPubkey.getPublicKey(base_url, i)
@@ -96,9 +104,10 @@ def test_EC_sign_verify(base_url, headers):
     
     key_EC_p224 = createkey.createkey(base_url, "EH_EC_P224", "EH_INTERNAL_KEY", None, None, "EH_SHA_2_224")
     key_EC_p256 = createkey.createkey(base_url, "EH_EC_P256", "EH_INTERNAL_KEY", None, None, "EH_SHA_2_256")
+    key_EC_p256k = createkey.createkey(base_url, "EH_EC_P256K", "EH_INTERNAL_KEY", None, None, "EH_SHA_2_256")
     key_EC_p384 = createkey.createkey(base_url, "EH_EC_P384", "EH_INTERNAL_KEY", None, None, "EH_SHA_2_384")
     key_EC_p521 = createkey.createkey(base_url, "EH_EC_P521", "EH_INTERNAL_KEY", None, None, "EH_SHA_2_512")
-    asymmetricKey = [key_EC_p256, key_EC_p224, key_EC_p384, key_EC_p521]
+    asymmetricKey = [key_EC_p256, key_EC_p256k, key_EC_p224, key_EC_p384, key_EC_p521]
     
     for i in asymmetricKey:
         # test Sign

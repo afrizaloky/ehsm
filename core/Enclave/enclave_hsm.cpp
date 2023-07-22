@@ -83,6 +83,7 @@ static size_t get_signature_length(ehsm_keyspec_t keyspec)
     case EH_RSA_4096:
         return RSA_OAEP_4096_SIGNATURE_SIZE;
     case EH_EC_P256:
+    case EH_EC_P256K:
         return EC_P256_SIGNATURE_MAX_SIZE;
     case EH_EC_P224:
         return EC_P224_SIGNATURE_MAX_SIZE;
@@ -182,6 +183,7 @@ sgx_status_t enclave_create_key(ehsm_keyblob_t *cmk, size_t cmk_size)
         break;
     case EH_EC_P224:
     case EH_EC_P256:
+    case EH_EC_P256K:
     case EH_EC_P384:
     case EH_EC_P521:
         ret = ehsm_create_ecc_key(cmk);
@@ -211,7 +213,15 @@ sgx_status_t enclave_get_public_key(ehsm_keyblob_t *cmk, size_t cmk_size,
         cmk->metadata.origin != EH_INTERNAL_KEY)
         return SGX_ERROR_INVALID_PARAMETER;
 
-    if (cmk->metadata.keyspec != EH_SM2)
+    if (cmk->metadata.keyspec != EH_SM2 &&
+        cmk->metadata.keyspec != EH_EC_P224 &&
+        cmk->metadata.keyspec != EH_EC_P256 &&
+        cmk->metadata.keyspec != EH_EC_P256K &&
+        cmk->metadata.keyspec != EH_EC_P384 &&
+        cmk->metadata.keyspec != EH_EC_P521 &&
+        cmk->metadata.keyspec != EH_RSA_2048 &&
+        cmk->metadata.keyspec != EH_RSA_3072 &&
+        cmk->metadata.keyspec != EH_RSA_4096)
         return SGX_ERROR_INVALID_PARAMETER;
 
     if (pubkey != NULL && pubkey_size != APPEND_SIZE_TO_DATA_T(pubkey->datalen))
@@ -462,8 +472,9 @@ sgx_status_t enclave_sign(const ehsm_keyblob_t *cmk, size_t cmk_size,
                             data,
                             signature);
         break;
-    case EH_EC_P256:
     case EH_EC_P224:
+    case EH_EC_P256:
+    case EH_EC_P256K:
     case EH_EC_P384:
     case EH_EC_P521:
         ret = ehsm_ecc_sign(cmk,
@@ -543,8 +554,9 @@ sgx_status_t enclave_verify(const ehsm_keyblob_t *cmk, size_t cmk_size,
                               signature,
                               result);
         break;
-    case EH_EC_P256:
     case EH_EC_P224:
+    case EH_EC_P256:
+    case EH_EC_P256K:
     case EH_EC_P384:
     case EH_EC_P521:
         // not check ecc & sm2 signateure len because the len will be change after sign

@@ -444,7 +444,7 @@ void test_SM2_encrypt_decrypt()
 void test_get_pubkey()
 {
     log_i("============test_get_public_key==========\n");
-    uint32_t keyspec[] = {EH_SM2};
+    uint32_t keyspec[] = {EH_SM2, EH_EC_P224, EH_EC_P256, EH_EC_P256K, EH_EC_P384, EH_EC_P521, EH_RSA_2048, EH_RSA_3072, EH_RSA_4096};
 
     case_number += sizeof(keyspec) / sizeof(keyspec[0]);
 
@@ -623,8 +623,8 @@ step3. Verify the signature
 void test_ec_sign_verify()
 {
     log_i("============test_ec_sign_verify start==========\n");
-    std::string plaintext[] = {"Testsign-EC-p224", "Testsign-EC-p256", "Testsign-EC-p384", "Testsign-EC-p521"};
-    uint32_t keyspec[] = {EH_EC_P224, EH_EC_P256, EH_EC_P384, EH_EC_P521};
+    std::string plaintext[] = {"Testsign-EC-p224", "Testsign-EC-p256", "Testsign-EC-p256k", "Testsign-EC-p384", "Testsign-EC-p521"};
+    uint32_t keyspec[] = {EH_EC_P224, EH_EC_P256, EH_EC_P256K, EH_EC_P384, EH_EC_P521};
 
     case_number += sizeof(plaintext) / sizeof(plaintext[0]);
     for (int i = 0; i < sizeof(plaintext) / sizeof(plaintext[0]); i++)
