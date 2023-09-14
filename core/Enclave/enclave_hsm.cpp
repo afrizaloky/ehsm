@@ -761,13 +761,8 @@ sgx_status_t enclave_export_datakey(ehsm_keyblob_t *cmk, size_t cmk_size,
         return SGX_ERROR_INVALID_PARAMETER;
 
     ehsm_data_t *tmp_datakey = NULL;
+    ehsm_data_t tmp_datakey_tmp = {0};
     size_t tmp_datakey_size = 0;
-    tmp_datakey = (ehsm_data_t *)malloc(APPEND_SIZE_TO_DATA_T(0));
-    if (tmp_datakey == NULL)
-    {
-        ret = SGX_ERROR_INVALID_PARAMETER;
-        goto out;
-    }
 
     // datakey plaintext
     // to calc the plaintext len
@@ -776,25 +771,26 @@ sgx_status_t enclave_export_datakey(ehsm_keyblob_t *cmk, size_t cmk_size,
     case EH_AES_GCM_128:
     case EH_AES_GCM_192:
     case EH_AES_GCM_256:
-        tmp_datakey->datalen = olddatakey->datalen - EH_AES_GCM_IV_SIZE - EH_AES_GCM_MAC_SIZE;
-        tmp_datakey_size = APPEND_SIZE_TO_DATA_T(tmp_datakey->datalen);
+        tmp_datakey_tmp.datalen = olddatakey->datalen - EH_AES_GCM_IV_SIZE - EH_AES_GCM_MAC_SIZE;
+        tmp_datakey_size = APPEND_SIZE_TO_DATA_T(tmp_datakey_tmp.datalen);
         break;
     case EH_SM4_CBC:
     case EH_SM4_CTR:
-        tmp_datakey->datalen = olddatakey->datalen - SGX_SM4_IV_SIZE;
-        tmp_datakey_size = APPEND_SIZE_TO_DATA_T(tmp_datakey->datalen);
+        tmp_datakey_tmp.datalen = olddatakey->datalen - SGX_SM4_IV_SIZE;
+        tmp_datakey_size = APPEND_SIZE_TO_DATA_T(tmp_datakey_tmp.datalen);
         break;
     default:
         ret = SGX_ERROR_INVALID_PARAMETER;
         goto out;
     }
-    tmp_datakey = (ehsm_data_t *)realloc(tmp_datakey, APPEND_SIZE_TO_DATA_T(tmp_datakey->datalen));
+    tmp_datakey = (ehsm_data_t *)malloc(APPEND_SIZE_TO_DATA_T(tmp_datakey_tmp.datalen));
     if (tmp_datakey == NULL)
     {
         tmp_datakey_size = 0;
         ret = SGX_ERROR_INVALID_PARAMETER;
         goto out;
     }
+    tmp_datakey->datalen = tmp_datakey_tmp.datalen;
     // decrypt olddatakey using cmk
     switch (cmk->metadata.keyspec)
     {
@@ -940,4 +936,70 @@ sgx_status_t enclave_verify_quote_policy(uint8_t *quote, uint32_t quote_size,
         return SGX_ERROR_UNEXPECTED;
     }
     return SGX_SUCCESS;
+}
+
+/**
+ * @brief Generate HMAC with given cmk, apikey and payload
+ * @param cmk the cmk for apikey decryption
+ * @param apikey the encrypted apikey
+ * @param payload the payload of HMAC
+ * @param hmac the output of the function
+*/
+sgx_status_t enclave_generate_hmac(ehsm_keyblob_t *cmk, uint32_t cmk_size,
+                                    ehsm_data_t *apikey, uint32_t apikey_size,
+                                    ehsm_data_t *payload, uint32_t payload_size,
+                                    ehsm_data_t *hmac, uint32_t hmac_size)
+{
+    if (cmk == NULL ||
+        cmk_size != APPEND_SIZE_TO_KEYBLOB_T(cmk->keybloblen) ||
+        cmk->keybloblen == 0 ||
+        cmk->metadata.origin != EH_INTERNAL_KEY ||
+        cmk->metadata.keyusage != EH_KEYUSAGE_ENCRYPT_DECRYPT)
+        return SGX_ERROR_INVALID_PARAMETER;
+
+    if (apikey == NULL ||
+        apikey_size != APPEND_SIZE_TO_DATA_T(apikey->datalen))
+        return SGX_ERROR_INVALID_PARAMETER;
+
+    if (payload == NULL ||
+        payload_size != APPEND_SIZE_TO_DATA_T(payload->datalen) ||
+        payload->datalen == 0)
+        return SGX_ERROR_INVALID_PARAMETER;
+
+    if (hmac == NULL ||
+        hmac_size != APPEND_SIZE_TO_DATA_T(hmac->datalen) ||
+        hmac->datalen != EH_HMAC_SHA256_SIZE)
+        return SGX_ERROR_INVALID_PARAMETER;
+
+    sgx_status_t ret = SGX_ERROR_UNEXPECTED;
+    ehsm_data_t *rawApiKey = NULL;
+
+    // create space for storing raw apikey
+    rawApiKey = (ehsm_data_t *)malloc(APPEND_SIZE_TO_DATA_T(EH_API_KEY_SIZE));
+    if (rawApiKey == NULL)
+    {
+        ret = SGX_ERROR_UNEXPECTED;
+        goto out;
+    }
+    rawApiKey->datalen = EH_API_KEY_SIZE;
+
+    // 1. Decrypt the apikey
+    // aad is empty, thus NULL is passed as `aad` and 0 is passed as `aad_size`
+    ret = enclave_decrypt(cmk, cmk_size, NULL, 0, apikey, apikey_size, rawApiKey, APPEND_SIZE_TO_DATA_T(rawApiKey->datalen));
+    if (ret != SGX_SUCCESS) {
+        log_w("apikey decrypt failed");
+        goto out;
+    }
+
+    // 2. Generate HMAC
+    ret = sgx_hmac_sha256_msg(payload->data, payload->datalen, rawApiKey->data, rawApiKey->datalen, hmac->data, hmac->datalen);
+
+out:
+    // clear sensitive info
+    if (rawApiKey) {
+        memset_s(rawApiKey, APPEND_SIZE_TO_DATA_T(rawApiKey->datalen), 0, APPEND_SIZE_TO_DATA_T(rawApiKey->datalen));
+    }
+    // free allocations
+    SAFE_FREE(rawApiKey);
+    return ret;
 }
