@@ -2,7 +2,7 @@
 
 Welcome to see the build instructions for the ehsm-kms project.
 
-## Quick start with Docker-Compose
+## Quick start with Docker Compose
 
 **Notes:** The below steps has been verified on the **Ubuntu-20.04**.
 
@@ -61,21 +61,15 @@ Welcome to see the build instructions for the ehsm-kms project.
     USE_SECURE_CERT=FALSE
     ```
 
-* Install docker-compose
+* Install Docker Compose
 
     ``` shell
-    # Download the current stable release (remove the "-x $http_proxy" if you don't behind the proxy)
-    sudo curl -x $http_proxy -L "https://github.com/docker/compose/releases/download/1.29.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
-
-    sudo chmod +x /usr/local/bin/docker-compose
-
-    sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose
-
-    docker-compose --version
-    # docker-compose version 1.29.2, build 5becea4c
+    sudo apt install docker-compose-plugin
+    docker compose --version
+    # Docker Compose version v2.21.0
     ```
 
-* Build and Run ehsm-kms with docker-compose
+* Build and Run ehsm-kms with Docker Compose
 
     ```shell
     # Download the ehsm code from github
@@ -83,17 +77,25 @@ Welcome to see the build instructions for the ehsm-kms project.
 
     vim docker/.env
     # Modify the docker/.env configurations
+    # ======== docker/.env BEGIN ========
     HOST_IP=1.2.3.4               # MUST modify it to your host IP.
-
     PCCS_URL=https://1.2.3.4:8081 # MUST modify it to your pccs server url.
-
     DKEYSERVER_PORT=8888          # (Optional) the default port of dkeyserver, modify it if you want.
     KMS_PORT=9000                 # (Optional) the default KMS port, modify it if you want.
-
     TAG_VERSION=main              # (Optional) the default code base is using the main latest branch, modify it to specific tag if you want.
+    # ======== docker/.env END ========
 
-    # start to build and run the docker images (couchdb, dkeyserver, dkeycache, ehsm_kms_service)
-    cd docker && docker-compose up -d
+    # (Optional) Modify the docker/.env.pccs configurations if PCCS service is needed
+    # Subscribe to Intel Provisioning Certificate Service and receive an API key
+    # Checkout https://api.portal.trustedservices.intel.com/provisioning-certification for more information
+    # ======== docker/.env.pccs BEGIN ========
+    API_KEY=                      # MUST modify it to your API key obtained from registry
+    # ======== docker/.env.pccs END ========
+
+    # Start to build and run the docker images (couchdb, dkeyserver, dkeycache, ehsm_kms_service)
+    cd docker && docker compose up -d
+    # (Optional) If you want to start PCCS service as well, use `pccs` profile
+    docker compose --profile=pccs up -d
     ```
 
     You will get below results:
