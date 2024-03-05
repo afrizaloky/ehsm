@@ -4,6 +4,8 @@ import random
 import tempfile
 from typing import Optional
 
+from ehsm.exceptions import InvalidParamException
+
 from ehsm.api import Client
 from ehsm.utils import str_to_base64
 from ehsm.server_tests.utils import assert_response_success, random_str
@@ -37,33 +39,19 @@ def parse_enclave_file(filename: str):
     return mr_enclave, mr_signer
 
 
-@pytest.mark.skipif(
-    "not config.getoption('--run-quote')",
-    reason="Only run when --run-quote is given since this API is broken in docker environment",
+@pytest.mark.parametrize(
+    # "Mr_enclave" and "mr_signer" are created when the KMS service is started.
+    "mr_enclave, mr_signer",
+    [
+        ("70de1979095b7b85c18adefb1e1df55780e09ac3c1cc0e56a0df018a130b2fbd", "c30446b4be9baf0f69728423ea613ef81a63e72acf7439fa0549001fd5482835")
+    ]
 )
+
 def test_generate_quote_and_verify_quote(
     client: Client,
-    sgx_sign_bin: Optional[str],
-    ehsm_signed_so_file: Optional[str],
+    mr_enclave: Optional[str],
+    mr_signer: Optional[str],
 ):
-    # parameter check
-    if sgx_sign_bin is None or not os.path.isfile(sgx_sign_bin):
-        raise ValueError(
-            "sgx_sign binary not found, set --sgx-sign-bin to correct this"
-        )
-    if ehsm_signed_so_file is None or not os.path.isfile(ehsm_signed_so_file):
-        raise ValueError(
-            "ehsm_signed_so_file is invalid, set --ehsm-signed-so-file to path of libenclave-ehsm-core.signed.so"
-        )
-
-    # generate a quote
-    tmp_file = tempfile.NamedTemporaryFile()
-    ret = os.system(
-        f"{sgx_sign_bin} dump -enclave {ehsm_signed_so_file} -dumpfile {tmp_file.name}"
-    )
-    assert ret == 0
-    mr_enclave, mr_signer = parse_enclave_file(tmp_file.name)
-
     # upload quote
     result = client.upload_quote_policy(mr_enclave=mr_enclave, mr_signer=mr_signer)
     assert_response_success(result.response)
@@ -89,9 +77,12 @@ def test_generate_quote_and_verify_quote(
     assert is_valid
 
     # try an invalid one
-    invalid_quote = quote[:-1] + random_str(1)
-    result = client.verify_quote(
-        quote=str_to_base64(invalid_quote), nonce=nonce, policy_id=policy_id
-    )
-    # assert invalid
-    assert result.response.code != 200
+    try:
+        invalid_quote = quote[:-1] + random_str(1)
+        result = client.verify_quote(
+            quote=str_to_base64(invalid_quote), nonce=nonce, policy_id=policy_id
+        )
+    except InvalidParamException:
+        pass
+    else:
+        raise AssertionError("Expected exception not raised")
